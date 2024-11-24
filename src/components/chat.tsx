@@ -1,14 +1,20 @@
-'use client';
+'use client'
+
+import { useEffect, useState } from 'react'
+import { readStreamableValue, StreamableValue } from 'ai/rsc'
+import SyntaxHighlighter from "react-syntax-highlighter"
+import { vs2015 } from "react-syntax-highlighter/dist/esm/styles/hljs"
+import ReactMarkdown from 'react-markdown'
+
+import { type CoreMessage } from 'ai'
+
+import { continueTextConversation, Models } from '@/app/actions'
 
 import { Card } from "@/components/ui/card"
-import { type CoreMessage } from 'ai'
-import { useEffect, useState } from 'react'
-import ReactMarkdown from 'react-markdown'
-import { continueTextConversation, Models } from '@/app/actions'
-import { readStreamableValue, StreamableValue } from 'ai/rsc'
 import { Button } from '@/components/ui/button'
 import { IconArrowUp } from '@/components/ui/icons'
 import AboutCard from "@/components/cards/aboutcard"
+import { Textarea } from "@/components/ui/textarea"
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -16,15 +22,33 @@ import {
   DropdownMenuRadioGroup,
   DropdownMenuRadioItem,
 } from "@/components/ui/dropdown-menu"
-import SyntaxHighlighter from "react-syntax-highlighter"
-import { vs2015 } from "react-syntax-highlighter/dist/esm/styles/hljs"
-import { Textarea } from "./ui/textarea"
+
+
 export const maxDuration = 30
+
+
+interface ModelForDropdown {
+  id: Models,
+  name: string,
+  disabled?: boolean,
+  defaultChecked?: boolean
+}
+
+const models: ModelForDropdown[] = [
+  { id: 'gpt4omini', name: 'GPT-4o Mini' },
+  { id: 'gpt4', name: 'GPT-4' },
+  { id: 'gpt35turbo', name: 'GPT-3.5 Turbo' },
+  { id: 'gemini15pro', name: 'Gemini 1.5 Pro' },
+  { id: 'mixtral8b', name: 'Mixtral 8b' },
+  { id: 'claude35sonnet', name: 'Claude 3.5 Sonnet', disabled: true },
+  { id: 'claude3haiku', name: 'Claude 3 Haiku', disabled: true },
+  { id: 'llama3', name: 'LLama3', defaultChecked: true },
+]
 
 export default function Chat() {
   const [messages, setMessages] = useState<CoreMessage[]>([])
   const [input, setInput] = useState<string>('')
-  const [model, setModel] = useState<Models>("llama3" as Models)
+  const [model, setModel] = useState<ModelForDropdown>({ id: 'llama3', name: 'LLama3', defaultChecked: true })
   const [firstLoad, setFirstLoad] = useState(true)
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -35,7 +59,7 @@ export default function Chat() {
     ];
     setMessages(newMessages);
     setInput('');
-    const result = await continueTextConversation(newMessages, model)
+    const result = await continueTextConversation(newMessages, model.id)
     for await (const content of readStreamableValue(result as StreamableValue)) {
       setMessages([
         ...newMessages,
@@ -50,13 +74,13 @@ export default function Chat() {
   useEffect(() => {
     if (!firstLoad) return
     setFirstLoad(false)
-    setModel(localStorage.getItem('model') as Models || 'llama3')
+    setModel(models.find(m => m.id === (localStorage.getItem('model') as Models)) || { id: 'llama3', name: 'LLama3', defaultChecked: true })
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
   useEffect(() => {
     if (firstLoad) return
-    localStorage.setItem('model', model)
+    localStorage.setItem('model', model.id)
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [model])
   
@@ -125,17 +149,14 @@ export default function Chat() {
                   placeholder='Ask me anything...'
                 />
                 <DropdownMenu>
-                  <DropdownMenuTrigger className="px-4">{model}</DropdownMenuTrigger>
+                  <DropdownMenuTrigger className="px-4">
+                    <Button variant="outline">{model.name}</Button>
+                  </DropdownMenuTrigger>
                   <DropdownMenuContent>
-                    <DropdownMenuRadioGroup value={model} onValueChange={setModel as any}>
-                      <DropdownMenuRadioItem value="gpt4omini">GPT-4o Mini</DropdownMenuRadioItem>
-                      <DropdownMenuRadioItem value="gpt4">GPT-4</DropdownMenuRadioItem>
-                      <DropdownMenuRadioItem value="gpt35turbo">GPT-3.5 Turbo</DropdownMenuRadioItem>
-                      <DropdownMenuRadioItem value="gemini15pro">Gemini 1.5 Pro</DropdownMenuRadioItem>
-                      <DropdownMenuRadioItem value="mixtral8b">Mixtral 8b</DropdownMenuRadioItem>
-                      <DropdownMenuRadioItem value="claude35sonnet" disabled>Claude 3.5 Sonnet</DropdownMenuRadioItem>
-                      <DropdownMenuRadioItem value="claude3haiku" disabled>Claude 3 Haiku</DropdownMenuRadioItem>
-                      <DropdownMenuRadioItem defaultChecked value="llama3">Llama3</DropdownMenuRadioItem>
+                    <DropdownMenuRadioGroup value={model.id} onValueChange={(val) => setModel(models.find(m => m.id === val) || { id: 'llama3', name: 'LLama3', defaultChecked: true })}>
+                      {models.map((m, i) => (
+                          <DropdownMenuRadioItem value={m.id} key={i} disabled={m.disabled || false} defaultChecked={m.defaultChecked || false}>{m.name}</DropdownMenuRadioItem>
+                      ))}
                     </DropdownMenuRadioGroup>
                   </DropdownMenuContent>
                 </DropdownMenu>
